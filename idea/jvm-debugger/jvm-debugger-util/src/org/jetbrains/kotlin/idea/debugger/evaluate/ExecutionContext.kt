@@ -18,6 +18,7 @@ import com.intellij.debugger.jdi.VirtualMachineProxyImpl
 import com.intellij.openapi.project.Project
 import com.sun.jdi.*
 import com.sun.jdi.request.EventRequest
+import org.jetbrains.kotlin.idea.debugger.hopelessAware
 import org.jetbrains.org.objectweb.asm.Type
 
 class ExecutionContext(val evaluationContext: EvaluationContextImpl, val frameProxy: StackFrameProxyImpl) {
@@ -99,5 +100,41 @@ class ExecutionContext(val evaluationContext: EvaluationContextImpl, val framePr
         // Not available in older IDEA versions
         @Suppress("DEPRECATION")
         DebuggerUtilsEx.keep(reference, evaluationContext)
+    }
+
+    fun findClassSafe(className: String): ClassType? =
+        hopelessAware { findClass(className) as? ClassType }
+
+
+    fun invokeMethodAsString(instance: ObjectReference, methodName: String): String? =
+        (findAndInvoke(instance, instance.referenceType(), methodName, "()Ljava/lang/String;") as? StringReference)?.value() ?: null
+
+    fun invokeMethodAsInt(instance: ObjectReference, methodName: String): Int? =
+        (findAndInvoke(instance, instance.referenceType(), methodName, "()I") as? IntegerValue)?.value() ?: null
+
+    fun invokeMethodAsObject(instance: ClassType, methodName: String, vararg params: Value): ObjectReference? =
+        findAndInvoke(instance, methodName, null, *params) as? ObjectReference
+
+    fun invokeMethodAsObject(instance: ClassType, methodName: String, methodSignature: String, vararg params: Value): ObjectReference? =
+        findAndInvoke(instance, methodName, methodSignature, *params) as? ObjectReference
+
+    fun invokeMethodAsArray(instance: ClassType, methodName: String, methodSignature: String, vararg params: Value): ArrayReference? =
+        findAndInvoke(instance, methodName, methodSignature, *params) as? ArrayReference
+
+    private fun findAndInvoke(ref: ObjectReference, type: ReferenceType, name: String, methodSignature: String, vararg params: Value): Value? {
+        val method = type.methodsByName(name, methodSignature).single()
+        return invokeMethod(ref, method, params.asList())
+    }
+
+    /**
+     * static method invocation
+     */
+    fun findAndInvoke(type: ClassType, name: String, methodSignature: String? = null, vararg params: Value): Value? {
+        val method =
+            if (methodSignature is String)
+                type.methodsByName(name, methodSignature).single()
+            else
+                type.methodsByName(name).single()
+        return invokeMethod(type, method, params.asList())
     }
 }
