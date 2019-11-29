@@ -11347,6 +11347,21 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
             runTest("compiler/testData/codegen/box/ir/fileClassInitializers.kt");
         }
 
+        @TestMetadata("iterateOverArrayListIndices.kt")
+        public void testIterateOverArrayListIndices() throws Exception {
+            runTest("compiler/testData/codegen/box/ir/iterateOverArrayListIndices.kt");
+        }
+
+        @TestMetadata("iterateOverCustomCharSequence.kt")
+        public void testIterateOverCustomCharSequence() throws Exception {
+            runTest("compiler/testData/codegen/box/ir/iterateOverCustomCharSequence.kt");
+        }
+
+        @TestMetadata("iterateOverCustomIterable.kt")
+        public void testIterateOverCustomIterable() throws Exception {
+            runTest("compiler/testData/codegen/box/ir/iterateOverCustomIterable.kt");
+        }
+
         @TestMetadata("kt25405.kt")
         public void testKt25405() throws Exception {
             runTest("compiler/testData/codegen/box/ir/kt25405.kt");
