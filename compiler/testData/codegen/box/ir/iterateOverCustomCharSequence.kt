@@ -1,5 +1,6 @@
 // IGNORE_BACKEND_FIR: JVM_IR
 // WITH_RUNTIME
+// KJS_WITH_FULL_RUNTIME
 
 class C : CharSequence {
     // Unused declarations, which are here only to confuse the backend who might lookup symbols by name
