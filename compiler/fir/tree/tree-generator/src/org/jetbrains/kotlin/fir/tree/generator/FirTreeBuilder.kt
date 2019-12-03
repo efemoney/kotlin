@@ -87,6 +87,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val delegatedConstructorCall = element("DelegatedConstructorCall", Expression, call)
     val qualifiedAccessWithoutCallee = element("QualifiedAccessWithoutCallee", Expression, statement)
     val qualifiedAccess = element("QualifiedAccess", Expression, qualifiedAccessWithoutCallee, resolvable)
+    val checkNotNullCall = element("CheckNotNullCall", Expression, expression, call, resolvable)
 
     val arrayOfCall = element("ArrayOfCall", Expression, expression, call)
     val arraySetCall = element("ArraySetCall", Expression, qualifiedAccess, call)
