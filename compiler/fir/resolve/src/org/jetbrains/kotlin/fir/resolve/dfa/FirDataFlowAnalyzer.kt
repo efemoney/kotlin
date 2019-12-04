@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
@@ -142,7 +143,7 @@ class FirDataFlowAnalyzer(private val components: FirAbstractBodyResolveTransfor
 
         if (typeOperatorCall.operation !in FirOperation.TYPES) return
         val type = typeOperatorCall.conversionTypeRef.coneTypeSafe<ConeKotlinType>() ?: return
-        val operandVariable = getOrCreateRealVariable(typeOperatorCall.argument)?.variableUnderAlias ?: return
+        val operandVariable = getOrCreateRealVariable(typeOperatorCall.argument) ?: return
 
         val flow = node.flow
         when (typeOperatorCall.operation) {
@@ -336,6 +337,16 @@ class FirDataFlowAnalyzer(private val components: FirAbstractBodyResolveTransfor
 
     fun exitJump(jump: FirJump<*>) {
         graphBuilder.exitJump(jump).mergeIncomingFlow()
+    }
+
+    // ----------------------------------- Check not null call -----------------------------------
+
+    fun exitCheckNotNullCall(checkNotNullCall: FirCheckNotNullCall) {
+        // Note: For DFA purposes, `arg!!` is equivalent to `(arg as TypeOfArg)`
+        val node = graphBuilder.exitCheckNotNullCall(checkNotNullCall).mergeIncomingFlow()
+        val type = checkNotNullCall.typeRef.coneTypeSafe<ConeKotlinType>()?.withNullability(ConeNullability.NOT_NULL) ?: return
+        val operandVariable = getOrCreateRealVariable(checkNotNullCall.argument) ?: return
+        logicSystem.addApprovedInfo(node.flow, operandVariable, FirDataFlowInfo(setOf(type), emptySet()))
     }
 
     // ----------------------------------- When -----------------------------------
@@ -833,7 +844,7 @@ class FirDataFlowAnalyzer(private val components: FirAbstractBodyResolveTransfor
         if (fir is FirThisReceiverExpressionImpl) {
             return variableStorage.getOrCreateNewThisRealVariable(fir.calleeReference.boundSymbol ?: return null)
         }
-        val symbol: AbstractFirBasedSymbol<*> = fir.resolvedSymbol ?: return null
+        val symbol = fir.resolvedSymbol as? FirVariableSymbol<*> ?: return null
         return variableStorage.getOrCreateNewRealVariable(symbol).variableUnderAlias
     }
 
