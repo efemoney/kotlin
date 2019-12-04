@@ -2,4 +2,11 @@
   <extensions defaultExtensionNs="com.intellij">
     <trafficLightRendererContributor implementation="org.jetbrains.kotlin.idea.core.script.ScriptTrafficLightRendererContributor"/>
   </extensions>
+
+  <extensionPoints>
+    <extensionPoint interface="org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptInputsCalculator"
+                    qualifiedName="org.jetbrains.kotlin.scripting.idea.inputsCalculator"
+                    area="IDEA_PROJECT"
+    />
+  </extensionPoints>
 </idea-plugin>
