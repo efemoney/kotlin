@@ -5,13 +5,12 @@
 
 package org.jetbrains.kotlin.idea.scripting.gradle
 
+import com.intellij.lang.cacheBuilder.WordOccurrence
+import com.intellij.lang.findUsages.LanguageFindUsages
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
-import com.intellij.psi.PsiRecursiveElementVisitor
-import com.intellij.psi.PsiWhiteSpace
-import com.intellij.psi.impl.source.tree.LeafPsiElement
+import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.CachedConfigurationInputs
 import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptInputsCalculator
 import org.jetbrains.kotlin.idea.util.application.runReadAction
@@ -19,6 +18,7 @@ import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtScriptInitializer
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
+import java.util.zip.CRC32
 
 private val sections = arrayListOf("buildscript", "plugins", "initscript", "pluginManagement")
 
@@ -45,24 +45,30 @@ class GradleScriptInputsCalculator : ScriptInputsCalculator {
                 ?.getChildrenOfType<KtScriptInitializer>()
                 ?.forEach {
                     val call = it.children.singleOrNull() as? KtCallExpression
-                    val callRef = call?.firstChild?.text ?: return@forEach
-                    if (callRef in sections) {
-                        result.append(callRef)
-                        val lambda = call.lambdaArguments.singleOrNull()
-                        lambda?.accept(object : PsiRecursiveElementVisitor(false) {
-                            override fun visitElement(element: PsiElement) {
-                                super.visitElement(element)
-                                when (element) {
-                                    is PsiWhiteSpace -> if (element.text.contains("\n")) result.append("\n")
-                                    is LeafPsiElement -> result.append(element.text)
-                                }
-                            }
-                        })
+                    if (call?.firstChild?.text in sections) {
+                        result.append(call?.text)
                         result.append("\n")
                     }
                 }
 
-            return@runReadAction GradleKotlinScriptConfigurationInputs(result.toString().hashCode().toLong())
+            val crc32 = CRC32()
+            val wordsScanner = LanguageFindUsages.getWordsScanner(KotlinLanguage.INSTANCE)
+                ?: return@runReadAction GradleKotlinScriptConfigurationInputs(result.toString().hashCode().toLong())
+
+            wordsScanner.processWords(result.toString()) { occurrence ->
+                if (occurrence.kind !== WordOccurrence.Kind.COMMENTS) {
+                    val currentWord = occurrence.baseText.subSequence(occurrence.start, occurrence.end)
+                    var i = 0
+                    val end = currentWord.length
+                    while (i < end) {
+                        crc32.update(currentWord[i].toInt())
+                        i++
+                    }
+                }
+                true
+            }
+
+            return@runReadAction GradleKotlinScriptConfigurationInputs(crc32.value)
         }
     }
 }
