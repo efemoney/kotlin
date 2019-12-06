@@ -22,7 +22,7 @@ import java.util.zip.CRC32
 
 private val sections = arrayListOf("buildscript", "plugins", "initscript", "pluginManagement")
 
-class GradleScriptInputsCalculator : ScriptInputsCalculator {
+class GradleScriptInputsCalculator(private val project: Project) : ScriptInputsCalculator {
     override fun isApplicable(file: VirtualFile): Boolean = isGradleKotlinScript(file)
 
     override fun calculate(project: Project, file: VirtualFile, ktFile: KtFile?): CachedConfigurationInputs {
@@ -51,9 +51,14 @@ class GradleScriptInputsCalculator : ScriptInputsCalculator {
                     }
                 }
 
+            val timeStamp = System.currentTimeMillis()
+
             val crc32 = CRC32()
             val wordsScanner = LanguageFindUsages.getWordsScanner(KotlinLanguage.INSTANCE)
-                ?: return@runReadAction GradleKotlinScriptConfigurationInputs(result.toString().hashCode().toLong())
+                ?: return@runReadAction GradleKotlinScriptConfigurationInputs(
+                    result.toString().hashCode().toLong(),
+                    timeStamp
+                )
 
             wordsScanner.processWords(result.toString()) { occurrence ->
                 if (occurrence.kind !== WordOccurrence.Kind.COMMENTS) {
@@ -68,7 +73,7 @@ class GradleScriptInputsCalculator : ScriptInputsCalculator {
                 true
             }
 
-            return@runReadAction GradleKotlinScriptConfigurationInputs(crc32.value)
+            return@runReadAction GradleKotlinScriptConfigurationInputs(crc32.value, timeStamp)
         }
     }
 }

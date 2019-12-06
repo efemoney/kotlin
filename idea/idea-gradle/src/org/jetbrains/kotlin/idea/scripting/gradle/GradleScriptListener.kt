@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.idea.scripting.gradle
 
+import com.intellij.openapi.components.service
 import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import org.jetbrains.kotlin.idea.core.script.configuration.cache.ScriptConfigurationCacheScope
 import com.intellij.util.io.systemIndependentPath
 import org.jetbrains.kotlin.idea.core.script.configuration.listener.ScriptChangeListener
 import org.jetbrains.kotlin.idea.core.script.configuration.listener.ScriptConfigurationUpdater
@@ -16,7 +16,7 @@ import org.jetbrains.plugins.gradle.GradleManager
 import org.jetbrains.plugins.gradle.settings.GradleProjectSettings
 import org.jetbrains.plugins.gradle.util.GradleConstants
 
-class GradleScriptListener(project: Project) : ScriptChangeListener(project) {
+open class GradleScriptListener(project: Project) : ScriptChangeListener(project) {
 
     override fun editorActivated(vFile: VirtualFile, updater: ScriptConfigurationUpdater) {
         if (!isGradleKotlinScript(vFile)) return
@@ -34,13 +34,13 @@ class GradleScriptListener(project: Project) : ScriptChangeListener(project) {
         if (file != null) {
             // *.gradle.kts file was changed
             updater.ensureUpToDatedConfigurationSuggested(file)
-            updater.postponeConfigurationReload(ScriptConfigurationCacheScope.Except(file))
-        } else {
-            updater.postponeConfigurationReload(ScriptConfigurationCacheScope.All)
         }
+        project.service<GradleScriptInputsWatcher>().addToStorage(vFile)
     }
 
     override fun isApplicable(vFile: VirtualFile): Boolean {
+        if (!isGradleKotlinScript(vFile)) return false
+
         val gradleSettings = ExternalSystemApiUtil.getSettings(project, GradleConstants.SYSTEM_ID)
         if (gradleSettings.getLinkedProjectsSettings().isEmpty()) return false
 
