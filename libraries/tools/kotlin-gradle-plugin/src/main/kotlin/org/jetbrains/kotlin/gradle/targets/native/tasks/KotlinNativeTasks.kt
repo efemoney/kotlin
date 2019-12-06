@@ -29,7 +29,12 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind.*
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.KotlinLibrary
 import java.io.File
+import org.jetbrains.kotlin.konan.file.File as KonanFile
+import org.jetbrains.kotlin.library.impl.createKotlinLibrary
+import org.jetbrains.kotlin.library.uniqueName
+import org.jetbrains.kotlin.library.unresolvedDependencies
 
 // TODO: It's just temporary tasks used while KN isn't integrated with Big Kotlin compilation infrastructure.
 // region Useful extensions
@@ -556,15 +561,39 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
         val dependenciesCacheDirectories = getAllDependencies(dependency)
             .map { getCacheDirectory(it) }
             .filter { it.exists() }
-        for (artifact in artifactsToAddToCache) {
-            project.logger.info("Compiling ${dependency.name} to cache")
+
+        val artifactsLibraries = artifactsToAddToCache
+            .map { createKotlinLibrary(KonanFile(it.file.absolutePath)) }
+            .associateBy { it.uniqueName }
+
+        // Top sort artifacts.
+        val sortedLibraries = mutableListOf<KotlinLibrary>()
+        val visitedLibraries = mutableSetOf<KotlinLibrary>()
+
+        fun dfs(library: KotlinLibrary) {
+            visitedLibraries += library
+            library.unresolvedDependencies
+                .map { artifactsLibraries[it.path] }
+                .forEach {
+                    if (it != null && it !in visitedLibraries)
+                        dfs(it)
+                }
+            sortedLibraries += library
+        }
+
+        for (library in artifactsLibraries.values)
+            if (library !in visitedLibraries)
+                dfs(library)
+
+        for (library in sortedLibraries) {
+            project.logger.info("Compiling ${library.uniqueName} to cache")
             val args = mutableListOf(
                 "-p", "dynamic_cache",
                 "-target", target
             )
             if (debuggable)
                 args += "-g"
-            args += "-Xadd-cache=${artifact.file.absolutePath}"
+            args += "-Xadd-cache=${library.libraryFile.absolutePath}"
             args += "-Xcache-directory=${cacheDirectory.absolutePath}"
             args += "-Xcache-directory=${rootCacheDirectory.absolutePath}"
 
@@ -579,6 +608,13 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
                     args += "-l"
                     args += it.absolutePath
                 }
+            library.unresolvedDependencies
+                .map { artifactsLibraries[it.path] }
+                .filterNotNull()
+                .forEach {
+                    args += "-l"
+                    args += it.libraryFile.absolutePath
+                }
             KonanCompilerRunner(project).run(args)
         }
     }
@@ -590,14 +626,8 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
         val platformLib = platformLibs[platformLibName] ?: error("$platformLibName is not found in platform libs")
         if (File(rootCacheDirectory, System.mapLibraryName("$platformLibName-cache")).exists())
             return
-        val manifest = File(platformLib, "manifest")
-        val prefix = "depends="
-        manifest.forEachLine { line ->
-            if (!line.startsWith(prefix)) return@forEachLine
-            line.substring(prefix.length).split(' ').forEach { dependency ->
-                ensurePlatformLibPrecached(dependency, platformLibs, visitedLibs)
-            }
-        }
+        for (dependency in createKotlinLibrary(KonanFile(platformLib.absolutePath)).unresolvedDependencies)
+            ensurePlatformLibPrecached(dependency.path, platformLibs, visitedLibs)
         project.logger.info("Compiling $platformLibName (${visitedLibs.size}/${platformLibs.size}) to cache")
         val args = mutableListOf(
             "-p", "dynamic_cache",
@@ -608,7 +638,6 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
         args += "-Xadd-cache=${platformLib.absolutePath}"
         args += "-Xcache-directory=${rootCacheDirectory.absolutePath}"
         KonanCompilerRunner(project).run(args)
-
     }
 
     private fun ensurePlatformLibsPrecached() {
