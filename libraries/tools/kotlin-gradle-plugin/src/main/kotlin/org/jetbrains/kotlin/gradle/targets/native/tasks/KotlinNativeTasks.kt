@@ -34,6 +34,8 @@ import org.jetbrains.kotlin.library.impl.createKotlinLibrary
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.library.unresolvedDependencies
 import java.io.File
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 
 // TODO: It's just temporary tasks used while KN isn't integrated with Big Kotlin compilation infrastructure.
 // region Useful extensions
@@ -648,15 +650,18 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
         return allDependencies
     }
 
-    private fun computeDependenciesHash(dependency: ResolvedDependency): Long {
-        var result = 0L
-        (dependency.moduleArtifacts + getAllDependencies(dependency).flatMap { it.moduleArtifacts })
-            .map { it.file.absolutePath }
-            .distinct()
-            .sortedBy { it }
-            .flatMap { it.asIterable() }
-            .forEach { result = result * 497 + it.toInt() }
-        return result
+    private fun ByteArray.toHexString() = joinToString("") { (0xFF and it.toInt()).toString(16).padStart(2, '0') }
+
+    private fun computeDependenciesHash(dependency: ResolvedDependency): String {
+        val allArtifactsPaths =
+            (dependency.moduleArtifacts + getAllDependencies(dependency).flatMap { it.moduleArtifacts })
+                .map { it.file.absolutePath }
+                .distinct()
+                .sortedBy { it }
+                .joinToString("|") { it }
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(allArtifactsPaths.toByteArray(StandardCharsets.UTF_8))
+        return hash.toHexString()
     }
 
     private fun getCacheDirectory(dependency: ResolvedDependency): File {
