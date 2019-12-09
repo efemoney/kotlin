@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.java.deserialization
 
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.fir.FirSession
@@ -316,7 +317,11 @@ class KotlinDeserializedJvmSymbolsProvider(
             is KotlinClassFinder.Result.KotlinClass -> result.kotlinJvmBinaryClass
             is KotlinClassFinder.Result.ClassFileContent -> {
                 handledByJava.add(classId)
-                return javaSymbolProvider.getFirJavaClass(classId, result)
+                return try {
+                    javaSymbolProvider.getFirJavaClass(classId, result)
+                } catch (e: ProcessCanceledException) {
+                    null
+                }
             }
             null -> null
         }
@@ -388,7 +393,11 @@ class KotlinDeserializedJvmSymbolsProvider(
 
     private fun getPackageParts(packageFqName: FqName): Collection<PackagePartsCacheData> {
         return packagePartsCache.getOrPut(packageFqName) {
-            computePackagePartsInfos(packageFqName)
+            try {
+                computePackagePartsInfos(packageFqName)
+            } catch (e: ProcessCanceledException) {
+                emptyList()
+            }
         }
     }
 
