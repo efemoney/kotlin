@@ -38,5 +38,6 @@ class KotlinGradleCoroutineDebugProjectResolver : AbstractProjectResolverExtensi
         initScriptConsumer.consume(script)
     }
 
+    // supposed to be the same as [CoroutineProjectConnectionListener.kt].coroutineDebuggerEnabled
     private fun coroutineDebuggerEnabled() = Registry.`is`("kotlin.debugger.coroutines")
 }

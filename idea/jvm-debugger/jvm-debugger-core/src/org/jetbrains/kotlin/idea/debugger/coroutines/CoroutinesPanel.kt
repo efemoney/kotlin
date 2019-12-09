@@ -8,6 +8,9 @@
 package org.jetbrains.kotlin.idea.debugger.coroutines
 
 import com.intellij.debugger.actions.DebuggerActions
+import com.intellij.debugger.impl.DebuggerContextImpl
+import com.intellij.debugger.impl.DebuggerContextListener
+import com.intellij.debugger.impl.DebuggerSession
 import com.intellij.debugger.impl.DebuggerStateManager
 import com.intellij.debugger.ui.impl.ThreadsPanel
 import com.intellij.debugger.ui.impl.watch.DebuggerTree
@@ -22,6 +25,9 @@ import java.awt.event.MouseEvent
 class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : ThreadsPanel(project, stateManager) {
 
     init {
+//        stateManager.addListener(DebuggerContextListener() { debuggerContextImpl: DebuggerContextImpl, event: DebuggerSession.Event ->
+//            System.out.println("state changed: $event")
+//        })
 //        registerDisposable((threadsTree as CoroutinesDebuggerTree).installAction())
     }
 

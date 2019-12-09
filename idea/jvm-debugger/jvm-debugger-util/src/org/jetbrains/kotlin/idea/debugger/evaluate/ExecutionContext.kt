@@ -112,11 +112,26 @@ class ExecutionContext(val evaluationContext: EvaluationContextImpl, val framePr
     fun invokeMethodAsInt(instance: ObjectReference, methodName: String): Int? =
         (findAndInvoke(instance, instance.referenceType(), methodName, "()I") as? IntegerValue)?.value() ?: null
 
-    fun invokeMethodAsObject(instance: ClassType, methodName: String, vararg params: Value): ObjectReference? =
-        findAndInvoke(instance, methodName, null, *params) as? ObjectReference
+    fun invokeMethodAsObject(type: ClassType, methodName: String, vararg params: Value): ObjectReference? =
+        invokeMethodAsObject(type, methodName, null, *params)
 
-    fun invokeMethodAsObject(instance: ClassType, methodName: String, methodSignature: String, vararg params: Value): ObjectReference? =
+    fun invokeMethodAsObject(type: ClassType, methodName: String, methodSignature: String?, vararg params: Value): ObjectReference? =
+        findAndInvoke(type, methodName, methodSignature, *params) as? ObjectReference
+
+    fun invokeMethodAsObject(instance: ObjectReference, methodName: String, vararg params: Value): ObjectReference? =
+        invokeMethodAsObject(instance, methodName, null, *params)
+
+    fun invokeMethodAsObject(instance: ObjectReference, methodName: String, methodSignature: String?, vararg params: Value): ObjectReference? =
         findAndInvoke(instance, methodName, methodSignature, *params) as? ObjectReference
+
+    fun invokeMethodAsObject(instance: ObjectReference, method: Method, vararg params: Value): ObjectReference? =
+        invokeMethod(instance, method, params.asList()) as? ObjectReference
+
+    fun invokeMethodAsVoid(type: ClassType, methodName: String, methodSignature: String? = null, vararg params: Value = emptyArray()) =
+        findAndInvoke(type, methodName, methodSignature, *params)
+
+    fun invokeMethodAsVoid(instance: ObjectReference, methodName: String, methodSignature: String? = null, vararg params: Value = emptyArray()) =
+        findAndInvoke(instance, methodName, methodSignature, *params)
 
     fun invokeMethodAsArray(instance: ClassType, methodName: String, methodSignature: String, vararg params: Value): ArrayReference? =
         findAndInvoke(instance, methodName, methodSignature, *params) as? ArrayReference
@@ -136,5 +151,15 @@ class ExecutionContext(val evaluationContext: EvaluationContextImpl, val framePr
             else
                 type.methodsByName(name).single()
         return invokeMethod(type, method, params.asList())
+    }
+
+    fun findAndInvoke(instance: ObjectReference, name: String, methodSignature: String? = null, vararg params: Value): Value? {
+        val type = instance.referenceType()
+        val method =
+            if (methodSignature is String)
+                type.methodsByName(name, methodSignature).single()
+            else
+                type.methodsByName(name).single()
+        return invokeMethod(instance, method, params.asList())
     }
 }

@@ -48,21 +48,13 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
 
     @Synchronized
     @Suppress("unused")
-    fun install() {
-        val debugProbes = executionContext.findClass("$DEBUG_PACKAGE.DebugProbes") as ClassType
-        val instance = with(debugProbes) { getValue(fieldByName("INSTANCE")) as ObjectReference }
-        val install = debugProbes.concreteMethodByName("install", "()V")
-        executionContext.invokeMethod(instance, install, emptyList())
-    }
+    fun install() =
+        executionContext.invokeMethodAsVoid(refs.instance, "install")
 
     @Synchronized
     @Suppress("unused")
-    fun uninstall() {
-        val debugProbes = executionContext.findClass("$DEBUG_PACKAGE.DebugProbes") as ClassType
-        val instance = with(debugProbes) { getValue(fieldByName("INSTANCE")) as ObjectReference }
-        val uninstall = debugProbes.concreteMethodByName("uninstall", "()V")
-        executionContext.invokeMethod(instance, uninstall, emptyList())
-    }
+    fun uninstall() =
+        executionContext.invokeMethodAsVoid(refs.instance, "uninstall")
 
     /**
      * Invokes DebugProbes from debugged process's classpath and returns states of coroutines
@@ -88,7 +80,6 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
 //        ExecutionContext(EvaluationContextImpl(suspendContext, suspendContext.frameProxy), stackFrameProxyImpl)
 
     private fun dump(): List<CoroutineState> {
-        // get dump
         val coroutinesInfo = dumpCoroutinesInfo() ?: return emptyList()
 
         executionContext.keepReference(coroutinesInfo)
@@ -101,7 +92,7 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
     }
 
     private fun dumpCoroutinesInfo() =
-        executionContext.invokeMethod(refs.instance, refs.dumpMethod, emptyList()) as? ObjectReference
+        executionContext.invokeMethodAsObject(refs.instance, refs.dumpMethod)
 
     private fun getElementFromList(instance: ObjectReference, num: Int) =
         executionContext.invokeMethod(
@@ -113,13 +104,14 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         val name = getName(instance)
         val state = getState(instance)
         val thread = getLastObservedThread(instance, refs.lastObservedThreadFieldRef)
+        val lastObservedFrameFieldRef = instance.getValue(refs.lastObservedFrameFieldRef) as? ObjectReference
         return CoroutineState(
             name,
             CoroutineState.State.valueOf(state),
             thread,
             getStackTrace(instance),
             getStackTrace(instance),
-            instance.getValue(refs.lastObservedFrameFieldRef) as? ObjectReference
+            lastObservedFrameFieldRef
         )
     }
 
@@ -246,7 +238,7 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         val lastObservedStackTraceRef: Method = coroutineInfoClsRef.methodsByName("lastObservedStackTrace").single()
         val getContextElement: Method = coroutineContextClsRef.methodsByName("get").single()
         val getNameRef: Method = coroutineNameClsRef.methodsByName("getName").single()
-        val keyFieldRef =coroutineNameClsRef.fieldByName("Key")
+        val keyFieldRef = coroutineNameClsRef.fieldByName("Key")
         val toString: Method = classClsRef.concreteMethodByName("toString", "()Ljava/lang/String;")
 
         val lastObservedThreadFieldRef: Field = coroutineInfoClsRef.fieldByName("lastObservedThread")

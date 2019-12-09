@@ -60,7 +60,7 @@ class CoroutinesDebuggerTree(project: Project) : ThreadsDebuggerTree(project) {
         val debuggerSessionState = session?.state ?: DebuggerSession.State.DISPOSED
 
         if (ApplicationManager.getApplication().isUnitTestMode || debuggerSessionState in EnumSet.of(DebuggerSession.State.PAUSED, DebuggerSession.State.RUNNING)) {
-//            showMessage(MessageDescriptor.EVALUATING)
+            showMessage(MessageDescriptor.EVALUATING)
             context.debugProcess!!.managerThread.schedule(command)
         } else {
             showMessage(session?.stateDescription ?: DebuggerBundle.message("status.debug.stopped"))
