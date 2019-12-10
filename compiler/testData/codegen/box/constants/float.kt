@@ -1,3 +1,9 @@
+// KJS_WITH_FULL_RUNTIME
+
+import kotlin.math.*
+
+fun almostEqual(a: Float, b: Float): Boolean = abs(a - b) < 0.0000001F
+
 fun box(): String {
     if (1F != 1.toFloat()) return "fail 1"
     if (1.0F != 1.0.toFloat()) return "fail 2"
@@ -12,6 +18,8 @@ fun box(): String {
     if (1.0e1f != 1.0e1.toFloat()) return "fail 10"
     if (1e-1f != 1e-1.toFloat()) return "fail 11"
     if (1.0e-1f != 1.0e-1.toFloat()) return "fail 12"
+
+    if (!almostEqual(kotlin.math.E.toFloat(), exp(1.0F))) return "fail 13"
 
     return "OK"
 }

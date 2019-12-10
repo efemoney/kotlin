@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.resolve.constants.evaluate.evaluateBinary
 import org.jetbrains.kotlin.resolve.constants.evaluate.evaluateUnary
 
 val foldConstantLoweringPhase = makeIrFilePhase(
-    ::FoldConstantLowering,
+    { ctx: CommonBackendContext -> FoldConstantLowering(ctx) },
     name = "FoldConstantLowering",
     description = "Constant Folding"
 )
@@ -35,7 +35,9 @@ val foldConstantLoweringPhase = makeIrFilePhase(
  *
  * TODO: constant fields (e.g. Double.NaN)
  */
-class FoldConstantLowering(private val context: CommonBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
+class FoldConstantLowering(
+    private val context: CommonBackendContext,
+    private val floatAsDouble: Boolean = false) : IrElementTransformerVoid(), FileLoweringPass {
     /**
      * ID of an binary operator / method.
      *
@@ -159,6 +161,14 @@ class FoldConstantLowering(private val context: CommonBackendContext) : IrElemen
         }
     }
 
+    private fun toFloatConst(call: IrCall, v: Any): IrExpression {
+        return if (v is Float) IrConstImpl.float(call.startOffset, call.endOffset, call.type, v)
+        else {
+            assert(v is Double === floatAsDouble)
+            IrConstImpl.double(call.startOffset, call.endOffset, context.irBuiltIns.doubleType, v as Double)
+        }
+    }
+
     private fun buildIrConstant(call: IrCall, v: Any): IrExpression {
         return when {
             call.type.isInt() -> IrConstImpl.int(call.startOffset, call.endOffset, call.type, v as Int)
@@ -168,7 +178,7 @@ class FoldConstantLowering(private val context: CommonBackendContext) : IrElemen
             call.type.isShort() -> IrConstImpl.short(call.startOffset, call.endOffset, call.type, v as Short)
             call.type.isLong() -> IrConstImpl.long(call.startOffset, call.endOffset, call.type, v as Long)
             call.type.isDouble() -> IrConstImpl.double(call.startOffset, call.endOffset, call.type, v as Double)
-            call.type.isFloat() -> IrConstImpl.float(call.startOffset, call.endOffset, call.type, v as Float)
+            call.type.isFloat() -> toFloatConst(call, v)
             call.type.isString() -> IrConstImpl.string(call.startOffset, call.endOffset, call.type, v as String)
             else -> throw IllegalArgumentException("Unexpected IrCall return type")
         }
@@ -178,12 +188,18 @@ class FoldConstantLowering(private val context: CommonBackendContext) : IrElemen
         val operand = call.dispatchReceiver as? IrConst<*> ?: return call
         val operationName = call.symbol.owner.name.toString()
 
-        // Since there is no distinguish between signed and unsigned types a special handling for `toString` is required
-        val evaluated = if (operationName == "toString") constToString(operand) else evaluateUnary(
-            operationName,
-            operand.kind.toString(),
-            operand.value!!
-        ) ?: return call
+        val evaluated = when {
+            // Since there is no distinguish between signed and unsigned types a special handling for `toString` is required
+            operationName == "toString" -> constToString(operand)
+            // In K/JS double and float are the same types so no special action required for Double.toFloat()
+            operationName == "toFloat" && (operand.kind == IrConstKind.Double) && floatAsDouble -> return operand
+            else -> evaluateUnary(
+                operationName,
+                operand.kind.toString(),
+                operand.value!!
+            ) ?: return call
+        }
+
         return buildIrConstant(call, evaluated)
     }
 
