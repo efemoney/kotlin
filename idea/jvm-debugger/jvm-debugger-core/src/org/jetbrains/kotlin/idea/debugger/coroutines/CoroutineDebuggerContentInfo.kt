@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NonNls
 class CoroutineDebuggerContentInfo {
     companion object {
         val COROUTINE_THREADS_CONTENT = "CoroutineThreadsContent"
+        val XCOROUTINE_THREADS_CONTENT = "XCoroutineThreadsContent"
     }
 }
 

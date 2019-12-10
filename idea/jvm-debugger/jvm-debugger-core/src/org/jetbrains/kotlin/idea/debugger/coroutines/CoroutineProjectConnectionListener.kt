@@ -21,6 +21,7 @@ import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.registry.Registry
+import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentManagerAdapter
 import com.intellij.ui.content.ContentManagerEvent
 import com.intellij.util.messages.MessageBusConnection
@@ -28,7 +29,10 @@ import com.intellij.xdebugger.XDebugProcess
 import com.intellij.xdebugger.XDebugSession
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerManagerListener
+import com.intellij.xdebugger.impl.XDebugSessionImpl
+import com.intellij.xdebugger.impl.ui.XDebugSessionTab
 import org.jetbrains.kotlin.idea.KotlinBundle
+import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -87,6 +91,23 @@ class CoroutineProjectConnectionListener(val project: Project) : XDebuggerManage
             processCounter.decrementAndGet()
     }
 
+    private fun createThreadsContent(session: XDebugSession) {
+        val ui = session.ui ?: return
+        val stacksView = XCoroutineThreadView(project, session as XDebugSessionImpl)
+        val tab: XDebugSessionTab = session?.sessionTab!!
+        Utils.callPrivate(tab, "registerView", CoroutineDebuggerContentInfo.XCOROUTINE_THREADS_CONTENT, stacksView)
+//        tab.registerView()
+//        registerView(tab, CoroutineDebuggerContentInfo.XCOROUTINE_THREADS_CONTENT, stacksView)
+        val framesContent: Content = ui.createContent(
+            CoroutineDebuggerContentInfo.XCOROUTINE_THREADS_CONTENT, stacksView.getPanel(),
+            KotlinBundle.message("debugger.session.tab.xcoroutine.title"), null,
+            stacksView.getDefaultFocusedComponent()
+        )
+        framesContent.isCloseable = false
+        ui.addContent(framesContent, 0, PlaceInGrid.right, true)
+    }
+
+
     /**
      * Adds panel to XDebugSessionTab
      */
@@ -96,6 +117,7 @@ class CoroutineProjectConnectionListener(val project: Project) : XDebuggerManage
         // evaluation of `debuggerSession.contextManager.toString()` leads to
         // java.lang.Throwable: Assertion failed: Should be invoked in manager thread, use DebuggerManagerThreadImpl.getInstance(..).invoke
         // toString() is not allowed here, that is conflicts with debugger only
+        createThreadsContent(session)
 
         val content = ui.createContent(
             CoroutineDebuggerContentInfo.COROUTINE_THREADS_CONTENT,

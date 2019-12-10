@@ -102,7 +102,7 @@ class CoroutineBuildFrameCommand(
                 val javaStackFrame = JavaStackFrame(StackFrameDescriptorImpl(frames[endRange - 1], MethodsTracker()), true)
                 val async = KotlinCoroutinesAsyncStackTraceProvider()
                     .getAsyncStackTrace(javaStackFrame, evalContext.suspendContext)
-                async.forEach {
+                async?.forEach {
                     myChildren.add(createAsyncFrameDescriptor(evalContext, it, frames[frame]))
                 }
                 val f = frames[frame]
