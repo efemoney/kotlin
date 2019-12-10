@@ -63,7 +63,7 @@ internal class KtUltraLightSuspendContinuationParameter(
     override fun getModifierList(): PsiModifierList = lightModifierList
     override fun getNavigationElement(): PsiElement = ktFunction.navigationElement
     override fun getUseScope(): SearchScope = ktFunction.useScope
-    override fun isValid() = ktFunction.isValid
+    override fun isValid() = ktFunction.isValid && super.isValid()
     override fun getContainingFile(): PsiFile = ktFunction.containingFile
     override fun getParent(): PsiElement = method.parameterList
 

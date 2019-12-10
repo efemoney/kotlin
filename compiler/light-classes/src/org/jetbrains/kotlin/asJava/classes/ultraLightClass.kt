@@ -58,6 +58,12 @@ open class KtUltraLightClass(classOrObject: KtClassOrObject, internal val suppor
     }
 
 
+    private val trackersServices = classOrObject.getExternalDependencies()
+    private val trackersCount = trackersServices.map { it.modificationCount }
+
+    override fun isValid(): Boolean =
+        super.isValid() && trackersServices.zip(trackersCount).all { it.first.modificationCount == it.second }
+
     private val membersBuilder by lazyPub {
         UltraLightMembersCreator(
             this,

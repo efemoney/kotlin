@@ -109,6 +109,8 @@ internal abstract class KtUltraLightMethod(
     override fun hashCode(): Int = name.hashCode()
 
     override fun isDeprecated(): Boolean = _deprecated
+
+    override fun isValid(): Boolean = super.isValid() && containingClass.isValid
 }
 
 internal class KtUltraLightMethodForSourceDeclaration(
