@@ -53,6 +53,8 @@ import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.util.slicedMap.ReadOnlySlice
 import org.jetbrains.kotlin.util.slicedMap.WritableSlice
 import java.util.*
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 
 internal class PerFileAnalysisCache(val file: KtFile, componentProvider: ComponentProvider) {
     private val globalContext = componentProvider.get<GlobalContext>()
@@ -60,6 +62,7 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
     private val resolveSession = componentProvider.get<ResolveSession>()
     private val codeFragmentAnalyzer = componentProvider.get<CodeFragmentAnalyzer>()
     private val bodyResolveCache = componentProvider.get<BodyResolveCache>()
+    private val lock = ReentrantLock()
 
     private val cache = HashMap<PsiElement, AnalysisResult>()
     private var fileResult: AnalysisResult? = null
@@ -69,7 +72,11 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
 
         val analyzableParent = KotlinResolveDataProvider.findAnalyzableParent(element)
 
-        return synchronized(this) {
+        while (!lock.tryLock(200, TimeUnit.MILLISECONDS)) {
+            ProgressIndicatorProvider.checkCanceled()
+        }
+
+        try {
             ProgressIndicatorProvider.checkCanceled()
 
             // step 1: perform incremental analysis IF it is applicable
@@ -80,14 +87,16 @@ internal class PerFileAnalysisCache(val file: KtFile, componentProvider: Compone
 
             // step 2: return result if it is cached
             lookUp(analyzableParent)?.let {
-                return@synchronized it
+                return it
             }
 
             // step 3: perform analyze of analyzableParent as nothing has been cached yet
             val result = analyze(analyzableParent)
             cache[analyzableParent] = result
 
-            return@synchronized result
+            return result
+        } finally {
+            lock.unlock()
         }
     }
 
