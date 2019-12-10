@@ -425,6 +425,10 @@ open class KotlinNativeLink : AbstractKotlinNativeCompile<KotlinCommonToolOption
     override val baseName: String
         get() = binary.baseName
 
+    @get:Input
+    protected val disableKonanCache: Boolean
+        get() = project.disableKonanCache
+
     inner class NativeLinkOptions: KotlinCommonToolOptions {
         override var allWarningsAsErrors: Boolean = false
         override var suppressWarnings: Boolean = false
@@ -624,6 +628,9 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
     private val debuggable: Boolean
         get() = binary.debuggable
 
+    private val disableKonanCache: Boolean
+        get() = project.disableKonanCache
+
     // Inputs and outputs
     private val libraries: FileCollection
         get() = compilation.compileDependencyFiles.filterOutPublishableInteropLibs(project)
@@ -667,7 +674,7 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
     private fun getCacheDirectory(dependency: ResolvedDependency): File {
         val moduleCacheDirectory = File(rootCacheDirectory, dependency.moduleName)
         val versionCacheDirectory = File(moduleCacheDirectory, dependency.moduleVersion)
-        return File(versionCacheDirectory, computeDependenciesHash(dependency).toString())
+        return File(versionCacheDirectory, computeDependenciesHash(dependency))
     }
 
     private fun needCache(libraryPath: String) = libraryPath.contains(".gradle") && libraryPath.endsWith(".klib")
@@ -681,11 +688,18 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
         val artifactsToAddToCache = dependency.moduleArtifacts.filter { needCache(it.file.absolutePath) }
         if (artifactsToAddToCache.isEmpty()) return
 
+        val dependenciesCacheDirectories = getAllDependencies(dependency)
+            .map { childDependency ->
+                val hasKlibs = childDependency.moduleArtifacts.any { it.file.absolutePath.endsWith(".klib") }
+                val cacheDirectory = getCacheDirectory(childDependency)
+                // We can only compile klib to cache if all of its dependencies are also cached.
+                if (hasKlibs && !cacheDirectory.exists())
+                    return
+                cacheDirectory
+            }
+            .filter { it.exists() }
         val cacheDirectory = getCacheDirectory(dependency)
         cacheDirectory.mkdirs()
-        val dependenciesCacheDirectories = getAllDependencies(dependency)
-            .map { getCacheDirectory(it) }
-            .filter { it.exists() }
 
         val artifactsLibraries = artifactsToAddToCache
             .map { createKotlinLibrary(org.jetbrains.kotlin.konan.file.File(it.file.absolutePath)) }
@@ -734,8 +748,7 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
                     args += it.absolutePath
                 }
             library.unresolvedDependencies
-                .map { artifactsLibraries[it.path] }
-                .filterNotNull()
+                .mapNotNull { artifactsLibraries[it.path] }
                 .forEach {
                     args += "-l"
                     args += it.libraryFile.absolutePath
@@ -744,7 +757,7 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
         }
     }
 
-    private fun ensurePlatformLibPrecached(platformLibName: String, platformLibs: Map<String, File>, visitedLibs: MutableSet<String>) {
+    private fun ensureCompilerProvidedLibPrecached(platformLibName: String, platformLibs: Map<String, File>, visitedLibs: MutableSet<String>) {
         if (platformLibName in visitedLibs)
             return
         visitedLibs += platformLibName
@@ -752,7 +765,7 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
         if (File(rootCacheDirectory, System.mapLibraryName("$platformLibName-cache")).exists())
             return
         for (dependency in createKotlinLibrary(org.jetbrains.kotlin.konan.file.File(platformLib.absolutePath)).unresolvedDependencies)
-            ensurePlatformLibPrecached(dependency.path, platformLibs, visitedLibs)
+            ensureCompilerProvidedLibPrecached(dependency.path, platformLibs, visitedLibs)
         project.logger.info("Compiling $platformLibName (${visitedLibs.size}/${platformLibs.size}) to cache")
         val args = mutableListOf(
             "-p", "dynamic_cache",
@@ -765,28 +778,31 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
         KonanCompilerRunner(project).run(args)
     }
 
-    private fun ensurePlatformLibsPrecached() {
+    private fun ensureCompilerProvidedLibsPrecached() {
         val platformLibs = libraries.filter { it.providedByCompiler(project) }.associateBy { it.name }
         val visitedLibs = mutableSetOf<String>()
         for (platformLibName in platformLibs.keys)
-            ensurePlatformLibPrecached(platformLibName, platformLibs, visitedLibs)
+            ensureCompilerProvidedLibPrecached(platformLibName, platformLibs, visitedLibs)
     }
 
     fun buildCompilerArgs(): List<String> = mutableListOf<String>().apply {
-        if (!project.disableKonanCache && !optimized) {
+        if (!disableKonanCache && !optimized) {
             rootCacheDirectory.mkdirs()
-            ensurePlatformLibsPrecached()
+            ensureCompilerProvidedLibsPrecached()
             add("-Xcache-directory=${rootCacheDirectory.absolutePath}")
             val visitedDependencies = mutableSetOf<ResolvedDependency>()
+            val allCacheDirectories = mutableSetOf<String>()
             val compileDependencyConfiguration = project.configurations.getByName(compilation.compileDependencyConfigurationName)
             for (root in compileDependencyConfiguration.resolvedConfiguration.firstLevelModuleDependencies) {
                 ensureDependencyPrecached(root, visitedDependencies)
                 for (dependency in listOf(root) + getAllDependencies(root)) {
                     val cacheDirectory = getCacheDirectory(dependency)
                     if (cacheDirectory.exists())
-                        add("-Xcache-directory=${cacheDirectory.absolutePath}")
+                        allCacheDirectories += cacheDirectory.absolutePath
                 }
             }
+            for (cacheDirectory in allCacheDirectories)
+                add("-Xcache-directory=$cacheDirectory")
         }
     }
 }
