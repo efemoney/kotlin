@@ -641,7 +641,7 @@ class CacheBuilder(val project: Project, val binary: NativeBinary) {
     private val optionsAwareCacheName get() = "$target${if (debuggable) "-g" else ""}"
 
     private val rootCacheDirectory
-        get() = File(File(File(project.konanHome, "klib"), "cache"), optionsAwareCacheName)
+        get() = File(project.konanHome).resolve("klib/cache/$optionsAwareCacheName")
 
     private fun getAllDependencies(dependency: ResolvedDependency): Set<ResolvedDependency> {
         val allDependencies = mutableSetOf<ResolvedDependency>()
