@@ -101,6 +101,6 @@ class XCoroutineThreadView(val project: Project, session: XDebugSessionImpl) : X
     class XThreadsRootNode(tree: XDebuggerTree, suspendContext: XSuspendContext) :
         XValueContainerNode<ThreadsContainer>(tree, null, false, ThreadsContainer(suspendContext))
 
-    override fun specificClass(): Class<*> = XDebugView.
+    override fun specificClass(): Class<*> = Class.forName("com.intellij.xdebugger.impl.frame.XDebugView")
 
 }

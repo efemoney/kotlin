@@ -105,10 +105,10 @@ class CoroutineBuildFrameCommand(
                 async?.forEach {
                     myChildren.add(createAsyncFrameDescriptor(evalContext, it, frames[frame]))
                 }
-                val f = frames[frame]
-                f.location()
-                val sfi = StackFrameItem(f.location(), mutableListOf())
-                myChildren.add(createAsyncFrameDescriptor(evalContext, sfi, frames[frame]))
+//                val f = frames[frame]
+//                f.location()
+//                val sfi = StackFrameItem(f.location(), mutableListOf())
+//                myChildren.add(createAsyncFrameDescriptor(evalContext, sfi, frames[frame]))
             } else {
                 val frameDescriptor = createFrameDescriptor(evalContext, frames[frame])
                 myChildren.add(frameDescriptor)

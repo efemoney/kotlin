@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 class KotlinCoroutinesAsyncStackTraceProvider : AsyncStackTraceProvider {
 
     override fun getAsyncStackTrace(stackFrame: JavaStackFrame, suspendContext: SuspendContextImpl): List<StackFrameItem>? {
-        // return hopelessAware { getAsyncStackTraceSafe(stackFrame.stackFrameProxy, suspendContext) } ?: emptyList()
+        // val stackFrameList = hopelessAware { getAsyncStackTraceSafe(stackFrame.stackFrameProxy, suspendContext) } ?: emptyList()
         return null
     }
 
