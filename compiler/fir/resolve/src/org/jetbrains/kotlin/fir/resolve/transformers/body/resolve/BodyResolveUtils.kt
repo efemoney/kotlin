@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowInferenceContext
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContextDelegate
+import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContext
 
 inline fun <reified T : FirElement> FirBasedSymbol<*>.firUnsafe(): T {
     val fir = this.fir
@@ -33,7 +33,7 @@ internal inline var FirExpression.resultType: FirTypeRef
     }
 
 interface UniversalConeInferenceContext :
-    ConeInferenceContext, TypeSystemInferenceExtensionContextDelegate, DataFlowInferenceContext
+    ConeInferenceContext, TypeSystemInferenceExtensionContext, DataFlowInferenceContext
 
 internal fun FirSession.inferenceContext(): UniversalConeInferenceContext {
     val session = this

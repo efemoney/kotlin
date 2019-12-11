@@ -9,9 +9,8 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.Constraint
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContext
-import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContextDelegate
 
-class TrivialConstraintTypeInferenceOracle(context: TypeSystemInferenceExtensionContextDelegate) :
+class TrivialConstraintTypeInferenceOracle(context: TypeSystemInferenceExtensionContext) :
     TypeSystemInferenceExtensionContext by context {
     // The idea is to add knowledge that constraint `Nothing(?) <: T` is quite useless and
     // it's totally fine to go and resolve postponed argument without fixation T to Nothing(?).
